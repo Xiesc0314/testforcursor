@@ -178,6 +178,14 @@
       .cell {
         width: var(--cellSize, 34px);
         height: var(--cellSize, 34px);
+        padding: 0;
+        margin: 0;
+        min-width: 0;
+        line-height: 1;
+        font-family: inherit;
+        -webkit-appearance: none;
+        appearance: none;
+        overflow: hidden;
         border-radius: 10px;
         border: 1px solid rgba(255, 255, 255, 0.18);
         background: var(--cell);
@@ -189,6 +197,10 @@
         cursor: pointer;
         transition: transform 90ms ease, background 120ms ease, border-color 120ms ease;
         box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+      }
+      .cell:disabled {
+        opacity: 1;
+        color: inherit;
       }
       .cell:hover { background: var(--cellHover); transform: translateY(-1px); }
       .cell:active { transform: translateY(0px) scale(0.99); }
