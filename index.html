@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>扫雷 - Minesweeper</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --panel: rgba(255, 255, 255, 0.08);
+        --panel2: rgba(255, 255, 255, 0.12);
+        --text: rgba(255, 255, 255, 0.92);
+        --muted: rgba(255, 255, 255, 0.7);
+        --shadow: rgba(0, 0, 0, 0.35);
+        --accent: #6aa7ff;
+        --danger: #ff5d5d;
+        --ok: #50d1a6;
+        --cell: rgba(255, 255, 255, 0.12);
+        --cellHover: rgba(255, 255, 255, 0.17);
+        --cellOpen: rgba(255, 255, 255, 0.06);
+        --border: rgba(255, 255, 255, 0.18);
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "PingFang SC",
+          "Microsoft YaHei", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(1200px 900px at 20% 10%, rgba(106, 167, 255, 0.28), transparent 55%),
+          radial-gradient(900px 700px at 80% 30%, rgba(80, 209, 166, 0.2), transparent 55%),
+          radial-gradient(900px 700px at 65% 85%, rgba(255, 93, 93, 0.16), transparent 55%),
+          linear-gradient(180deg, #070a13, var(--bg));
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+      .app {
+        width: min(980px, 100%);
+        display: grid;
+        grid-template-columns: 340px 1fr;
+        gap: 16px;
+        align-items: start;
+      }
+      @media (max-width: 860px) {
+        .app { grid-template-columns: 1fr; }
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: 0 18px 60px var(--shadow);
+        backdrop-filter: blur(10px);
+        overflow: hidden;
+      }
+      .cardHeader {
+        padding: 16px 16px 14px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .title {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .title h1 {
+        font-size: 18px;
+        margin: 0;
+        letter-spacing: 0.2px;
+      }
+      .title .sub {
+        font-size: 12px;
+        color: var(--muted);
+        margin: 0;
+      }
+      .statusPill {
+        padding: 6px 10px;
+        font-size: 12px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .statusPill.win { color: rgba(80, 209, 166, 0.95); border-color: rgba(80, 209, 166, 0.35); }
+      .statusPill.lose { color: rgba(255, 93, 93, 0.95); border-color: rgba(255, 93, 93, 0.35); }
+      .cardBody { padding: 14px 16px 16px; }
+
+      .gridCard { padding: 0; }
+      .gridWrap { padding: 14px 16px 16px; overflow: auto; }
+
+      .stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+      .stat {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 10px 10px 9px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        min-height: 54px;
+      }
+      .stat .k { font-size: 12px; color: var(--muted); }
+      .stat .v {
+        font-size: 18px;
+        letter-spacing: 0.4px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .controls { display: grid; gap: 12px; }
+      .row { display: grid; gap: 8px; }
+      .row.inline { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .label {
+        font-size: 12px;
+        color: var(--muted);
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      select, input[type="number"], button {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.07);
+        color: var(--text);
+        outline: none;
+      }
+      select:focus, input[type="number"]:focus { border-color: rgba(106, 167, 255, 0.55); }
+      button {
+        cursor: pointer;
+        background: linear-gradient(180deg, rgba(106, 167, 255, 0.25), rgba(106, 167, 255, 0.14));
+        border-color: rgba(106, 167, 255, 0.35);
+        font-weight: 600;
+      }
+      button:hover { filter: brightness(1.06); }
+      button.secondary {
+        background: rgba(255, 255, 255, 0.06);
+        border-color: var(--border);
+        font-weight: 600;
+      }
+      button.danger {
+        background: linear-gradient(180deg, rgba(255, 93, 93, 0.24), rgba(255, 93, 93, 0.12));
+        border-color: rgba(255, 93, 93, 0.35);
+      }
+      .hint {
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .hint kbd {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.25);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: rgba(255, 255, 255, 0.9);
+      }
+
+      .board {
+        display: grid;
+        gap: 6px;
+        justify-content: start;
+        align-content: start;
+        user-select: none;
+        touch-action: manipulation;
+      }
+      .cell {
+        width: var(--cellSize, 34px);
+        height: var(--cellSize, 34px);
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: var(--cell);
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        font-size: 15px;
+        letter-spacing: 0.2px;
+        cursor: pointer;
+        transition: transform 90ms ease, background 120ms ease, border-color 120ms ease;
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+      }
+      .cell:hover { background: var(--cellHover); transform: translateY(-1px); }
+      .cell:active { transform: translateY(0px) scale(0.99); }
+      .cell.open {
+        background: var(--cellOpen);
+        border-color: rgba(255, 255, 255, 0.12);
+        box-shadow: none;
+        cursor: default;
+      }
+      .cell.flag { background: rgba(255, 255, 255, 0.1); }
+      .cell.mine.open { background: rgba(255, 93, 93, 0.18); border-color: rgba(255, 93, 93, 0.35); }
+      .cell.badFlag { background: rgba(255, 93, 93, 0.12); border-color: rgba(255, 93, 93, 0.35); }
+
+      .n1 { color: #87b7ff; }
+      .n2 { color: #5ee6bd; }
+      .n3 { color: #ff8a8a; }
+      .n4 { color: #b7a3ff; }
+      .n5 { color: #ffbe6a; }
+      .n6 { color: #66f0ff; }
+      .n7 { color: rgba(255, 255, 255, 0.9); }
+      .n8 { color: rgba(255, 255, 255, 0.75); }
+
+      .footer {
+        padding: 10px 16px 14px;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 12px;
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .footer a { color: rgba(106, 167, 255, 0.9); text-decoration: none; }
+      .footer a:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <section class="card">
+        <div class="cardHeader">
+          <div class="title">
+            <h1>扫雷</h1>
+            <p class="sub">左键翻开，右键插旗。首击保证不踩雷。</p>
+          </div>
+          <div id="statusPill" class="statusPill">进行中</div>
+        </div>
+        <div class="cardBody">
+          <div class="stats">
+            <div class="stat">
+              <div class="k">剩余雷数</div>
+              <div class="v" id="minesLeft">0</div>
+            </div>
+            <div class="stat">
+              <div class="k">用时</div>
+              <div class="v" id="timer">0</div>
+            </div>
+            <div class="stat">
+              <div class="k">已打开</div>
+              <div class="v" id="opened">0</div>
+            </div>
+          </div>
+
+          <div class="controls">
+            <div class="row">
+              <div class="label"><span>难度</span><span id="presetHint"></span></div>
+              <select id="preset">
+                <option value="beginner">初级（9×9，10雷）</option>
+                <option value="intermediate">中级（16×16，40雷）</option>
+                <option value="expert">高级（30×16，99雷）</option>
+                <option value="custom">自定义</option>
+              </select>
+            </div>
+
+            <div class="row inline">
+              <div class="row">
+                <div class="label"><span>宽</span><span id="wShow"></span></div>
+                <input id="w" type="number" min="5" max="50" value="9" />
+              </div>
+              <div class="row">
+                <div class="label"><span>高</span><span id="hShow"></span></div>
+                <input id="h" type="number" min="5" max="40" value="9" />
+              </div>
+            </div>
+            <div class="row">
+              <div class="label"><span>雷数</span><span id="mShow"></span></div>
+              <input id="m" type="number" min="1" max="500" value="10" />
+            </div>
+
+            <div class="row inline">
+              <button id="restart">重新开始</button>
+              <button id="reveal" class="secondary" title="仅用于演示/调试">显示全部</button>
+            </div>
+
+            <div class="hint">
+              - **右键**：插旗/取消旗<br />
+              - **双击已打开数字**：当周围旗子数等于数字时，自动翻开周围未插旗格<br />
+              - 移动端：可用“长按”代替右键插旗（约 350ms）
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <span>单文件，无依赖，直接浏览器打开即可。</span>
+          <span>提示：也可用本地服务器打开（避免某些浏览器的文件限制）。</span>
+        </div>
+      </section>
+
+      <section class="card gridCard">
+        <div class="cardHeader">
+          <div class="title">
+            <h1>棋盘</h1>
+            <p class="sub" id="boardMeta">—</p>
+          </div>
+          <button id="newGame" class="secondary">新局</button>
+        </div>
+        <div class="gridWrap">
+          <div id="board" class="board" aria-label="扫雷棋盘"></div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      (() => {
+        /** @typedef {{x:number,y:number,isMine:boolean,isOpen:boolean,isFlag:boolean,adj:number}} Cell */
+
+        const $ = (id) => document.getElementById(id);
+        const boardEl = $("board");
+        const minesLeftEl = $("minesLeft");
+        const timerEl = $("timer");
+        const openedEl = $("opened");
+        const statusPillEl = $("statusPill");
+        const boardMetaEl = $("boardMeta");
+
+        const presetEl = $("preset");
+        const wEl = $("w");
+        const hEl = $("h");
+        const mEl = $("m");
+        const wShowEl = $("wShow");
+        const hShowEl = $("hShow");
+        const mShowEl = $("mShow");
+        const presetHintEl = $("presetHint");
+
+        const restartEl = $("restart");
+        const newGameEl = $("newGame");
+        const revealEl = $("reveal");
+
+        /** @type {{w:number,h:number,mines:number}} */
+        const presets = {
+          beginner: { w: 9, h: 9, mines: 10 },
+          intermediate: { w: 16, h: 16, mines: 40 },
+          expert: { w: 30, h: 16, mines: 99 },
+        };
+
+        /** @type {Cell[][]} */
+        let grid = [];
+        let w = 9, h = 9, mines = 10;
+        let firstClick = true;
+        let gameOver = false;
+        let win = false;
+        let openedCount = 0;
+        let flagsCount = 0;
+        let timerId = null;
+        let startAt = 0;
+
+        const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+        const key = (x, y) => `${x},${y}`;
+
+        function setStatus(mode) {
+          statusPillEl.classList.remove("win", "lose");
+          if (mode === "win") {
+            statusPillEl.textContent = "胜利";
+            statusPillEl.classList.add("win");
+          } else if (mode === "lose") {
+            statusPillEl.textContent = "失败";
+            statusPillEl.classList.add("lose");
+          } else {
+            statusPillEl.textContent = "进行中";
+          }
+        }
+
+        function setMeta() {
+          boardMetaEl.textContent = `${w}×${h}，${mines} 雷`;
+        }
+
+        function stopTimer() {
+          if (timerId) window.clearInterval(timerId);
+          timerId = null;
+        }
+        function startTimer() {
+          if (timerId) return;
+          startAt = Date.now();
+          timerId = window.setInterval(() => {
+            const s = Math.floor((Date.now() - startAt) / 1000);
+            timerEl.textContent = String(s);
+          }, 200);
+        }
+        function resetTimer() {
+          stopTimer();
+          timerEl.textContent = "0";
+        }
+
+        function inBounds(x, y) {
+          return x >= 0 && x < w && y >= 0 && y < h;
+        }
+        function neighbors(x, y) {
+          const out = [];
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              if (dx === 0 && dy === 0) continue;
+              const nx = x + dx, ny = y + dy;
+              if (inBounds(nx, ny)) out.push([nx, ny]);
+            }
+          }
+          return out;
+        }
+
+        function makeEmptyGrid() {
+          grid = Array.from({ length: h }, (_, y) =>
+            Array.from({ length: w }, (_, x) => ({
+              x, y, isMine: false, isOpen: false, isFlag: false, adj: 0,
+            }))
+          );
+        }
+
+        function placeMinesAvoiding(safeX, safeY) {
+          const safe = new Set();
+          safe.add(key(safeX, safeY));
+          for (const [nx, ny] of neighbors(safeX, safeY)) safe.add(key(nx, ny));
+
+          const candidates = [];
+          for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+              if (!safe.has(key(x, y))) candidates.push([x, y]);
+            }
+          }
+
+          // 如果棋盘太小导致候选不足，退化为只保证首击不踩雷
+          if (candidates.length < mines) {
+            candidates.length = 0;
+            for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+              if (!(x === safeX && y === safeY)) candidates.push([x, y]);
+            }
+          }
+
+          // Fisher-Yates shuffle
+          for (let i = candidates.length - 1; i > 0; i--) {
+            const j = (Math.random() * (i + 1)) | 0;
+            [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+          }
+
+          for (let i = 0; i < mines; i++) {
+            const [mx, my] = candidates[i];
+            grid[my][mx].isMine = true;
+          }
+
+          // compute adj
+          for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+              const c = grid[y][x];
+              if (c.isMine) continue;
+              let count = 0;
+              for (const [nx, ny] of neighbors(x, y)) if (grid[ny][nx].isMine) count++;
+              c.adj = count;
+            }
+          }
+        }
+
+        function updateStats() {
+          const left = mines - flagsCount;
+          minesLeftEl.textContent = String(left);
+          openedEl.textContent = String(openedCount);
+        }
+
+        function createBoardDom() {
+          boardEl.innerHTML = "";
+          boardEl.style.gridTemplateColumns = `repeat(${w}, var(--cellSize))`;
+          const cellSize = clamp(Math.floor(560 / w), 22, 40);
+          boardEl.style.setProperty("--cellSize", `${cellSize}px`);
+
+          for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+              const btn = document.createElement("button");
+              btn.type = "button";
+              btn.className = "cell";
+              btn.setAttribute("data-x", String(x));
+              btn.setAttribute("data-y", String(y));
+              btn.setAttribute("aria-label", `格子 ${x + 1},${y + 1}`);
+              btn.addEventListener("click", (e) => {
+                e.preventDefault();
+                onLeftClick(x, y);
+              });
+              btn.addEventListener("contextmenu", (e) => {
+                e.preventDefault();
+                onRightClick(x, y);
+              });
+              btn.addEventListener("dblclick", (e) => {
+                e.preventDefault();
+                onChord(x, y);
+              });
+
+              // 移动端长按当右键
+              let pressTimer = null;
+              btn.addEventListener("touchstart", (e) => {
+                if (gameOver) return;
+                if (pressTimer) clearTimeout(pressTimer);
+                pressTimer = setTimeout(() => onRightClick(x, y), 350);
+              }, { passive: true });
+              btn.addEventListener("touchend", () => {
+                if (pressTimer) clearTimeout(pressTimer);
+                pressTimer = null;
+              });
+              btn.addEventListener("touchmove", () => {
+                if (pressTimer) clearTimeout(pressTimer);
+                pressTimer = null;
+              }, { passive: true });
+
+              boardEl.appendChild(btn);
+            }
+          }
+        }
+
+        function getBtn(x, y) {
+          return boardEl.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`);
+        }
+
+        function renderCell(x, y, revealAll = false) {
+          const c = grid[y][x];
+          const btn = getBtn(x, y);
+          if (!btn) return;
+
+          btn.classList.toggle("open", c.isOpen || revealAll);
+          btn.classList.toggle("flag", c.isFlag && !revealAll);
+          btn.classList.toggle("mine", (c.isMine && (c.isOpen || revealAll)));
+          btn.classList.remove("badFlag", "n1", "n2", "n3", "n4", "n5", "n6", "n7", "n8");
+
+          if (revealAll && c.isFlag && !c.isMine) btn.classList.add("badFlag");
+
+          if (c.isOpen || revealAll) {
+            btn.disabled = true;
+            if (c.isMine) {
+              btn.textContent = "💣";
+            } else if (c.adj > 0) {
+              btn.textContent = String(c.adj);
+              btn.classList.add(`n${c.adj}`);
+            } else {
+              btn.textContent = "";
+            }
+          } else {
+            btn.disabled = false;
+            btn.textContent = c.isFlag ? "🚩" : "";
+          }
+        }
+
+        function renderAll(revealAll = false) {
+          for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) renderCell(x, y, revealAll);
+          updateStats();
+          setMeta();
+        }
+
+        function floodOpen(sx, sy) {
+          const q = [[sx, sy]];
+          const seen = new Set();
+          while (q.length) {
+            const [x, y] = q.shift();
+            const k = key(x, y);
+            if (seen.has(k)) continue;
+            seen.add(k);
+            const c = grid[y][x];
+            if (c.isOpen || c.isFlag) continue;
+            if (c.isMine) continue;
+
+            c.isOpen = true;
+            openedCount++;
+
+            if (c.adj === 0) {
+              for (const [nx, ny] of neighbors(x, y)) {
+                const n = grid[ny][nx];
+                if (!n.isOpen && !n.isFlag && !n.isMine) q.push([nx, ny]);
+              }
+            }
+          }
+        }
+
+        function checkWin() {
+          if (gameOver) return;
+          const totalSafe = w * h - mines;
+          if (openedCount === totalSafe) {
+            win = true;
+            gameOver = true;
+            stopTimer();
+            setStatus("win");
+            // 自动把剩余雷插旗
+            for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+              const c = grid[y][x];
+              if (c.isMine && !c.isFlag) {
+                c.isFlag = true;
+                flagsCount++;
+              }
+            }
+            renderAll(false);
+          }
+        }
+
+        function loseAt(x, y) {
+          gameOver = true;
+          win = false;
+          stopTimer();
+          setStatus("lose");
+          grid[y][x].isOpen = true;
+          renderAll(true);
+        }
+
+        function onLeftClick(x, y) {
+          if (gameOver) return;
+          const c = grid[y][x];
+          if (c.isOpen || c.isFlag) return;
+
+          if (firstClick) {
+            placeMinesAvoiding(x, y);
+            firstClick = false;
+            startTimer();
+          }
+
+          if (c.isMine) {
+            loseAt(x, y);
+            return;
+          }
+
+          if (c.adj === 0) {
+            floodOpen(x, y);
+          } else {
+            c.isOpen = true;
+            openedCount++;
+          }
+
+          renderAll(false);
+          checkWin();
+        }
+
+        function onRightClick(x, y) {
+          if (gameOver) return;
+          const c = grid[y][x];
+          if (c.isOpen) return;
+
+          c.isFlag = !c.isFlag;
+          flagsCount += c.isFlag ? 1 : -1;
+          renderCell(x, y, false);
+          updateStats();
+        }
+
+        function onChord(x, y) {
+          if (gameOver) return;
+          const c = grid[y][x];
+          if (!c.isOpen) return;
+          if (c.adj <= 0) return;
+
+          let flagAround = 0;
+          const nbs = neighbors(x, y);
+          for (const [nx, ny] of nbs) if (grid[ny][nx].isFlag) flagAround++;
+          if (flagAround !== c.adj) return;
+
+          for (const [nx, ny] of nbs) {
+            const n = grid[ny][nx];
+            if (!n.isOpen && !n.isFlag) onLeftClick(nx, ny);
+          }
+        }
+
+        function validateInputs() {
+          const w0 = clamp(parseInt(wEl.value || "9", 10), 5, 50);
+          const h0 = clamp(parseInt(hEl.value || "9", 10), 5, 40);
+          const maxM = w0 * h0 - 1;
+          const m0 = clamp(parseInt(mEl.value || "10", 10), 1, Math.min(500, maxM));
+
+          wEl.value = String(w0);
+          hEl.value = String(h0);
+          mEl.value = String(m0);
+
+          wShowEl.textContent = `${w0}`;
+          hShowEl.textContent = `${h0}`;
+          mShowEl.textContent = `${m0}/${maxM}`;
+
+          return { w: w0, h: h0, mines: m0 };
+        }
+
+        function setPresetHint() {
+          const v = presetEl.value;
+          if (v === "custom") {
+            presetHintEl.textContent = "可编辑下方参数";
+          } else {
+            presetHintEl.textContent = "固定参数";
+          }
+        }
+
+        function applyPreset(v) {
+          if (v === "custom") return;
+          const p = presets[v];
+          if (!p) return;
+          wEl.value = String(p.w);
+          hEl.value = String(p.h);
+          mEl.value = String(p.mines);
+          validateInputs();
+        }
+
+        function newGame() {
+          const cfg = validateInputs();
+          w = cfg.w;
+          h = cfg.h;
+          mines = cfg.mines;
+
+          firstClick = true;
+          gameOver = false;
+          win = false;
+          openedCount = 0;
+          flagsCount = 0;
+          resetTimer();
+          setStatus("play");
+          setMeta();
+
+          makeEmptyGrid();
+          createBoardDom();
+          renderAll(false);
+        }
+
+        presetEl.addEventListener("change", () => {
+          setPresetHint();
+          applyPreset(presetEl.value);
+          if (presetEl.value !== "custom") newGame();
+        });
+        wEl.addEventListener("input", () => { presetEl.value = "custom"; setPresetHint(); validateInputs(); });
+        hEl.addEventListener("input", () => { presetEl.value = "custom"; setPresetHint(); validateInputs(); });
+        mEl.addEventListener("input", () => { presetEl.value = "custom"; setPresetHint(); validateInputs(); });
+
+        restartEl.addEventListener("click", () => newGame());
+        newGameEl.addEventListener("click", () => newGame());
+        revealEl.addEventListener("click", () => {
+          // 不算输赢，仅展示
+          if (firstClick) {
+            // 没有落雷时先随便放一次（保证不崩）
+            placeMinesAvoiding(0, 0);
+            firstClick = false;
+          }
+          renderAll(true);
+        });
+
+        // init
+        setPresetHint();
+        validateInputs();
+        newGame();
+      })();
+    </script>
+  </body>
+</html>
+
