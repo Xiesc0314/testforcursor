@@ -1,0 +1,17 @@
+services:
+  echo:
+    image: ealen/echo-server:latest
+
+  proxy:
+    build: .
+    environment:
+      UPSTREAM_URL: "http://echo:80"
+      LISTEN_ADDR: ":8080"
+      HEALTH_PATH: "/healthz"
+      REQUEST_TIMEOUT_SECONDS: "0"
+      SHUTDOWN_TIMEOUT_SECONDS: "10"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - echo
+
